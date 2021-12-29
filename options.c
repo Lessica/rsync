@@ -575,7 +575,7 @@ enum {OPT_SERVER = 1000, OPT_DAEMON, OPT_SENDER, OPT_EXCLUDE, OPT_EXCLUDE_FROM,
       OPT_INCLUDE, OPT_INCLUDE_FROM, OPT_MODIFY_WINDOW, OPT_MIN_SIZE, OPT_CHMOD,
       OPT_READ_BATCH, OPT_WRITE_BATCH, OPT_ONLY_WRITE_BATCH, OPT_MAX_SIZE,
       OPT_NO_D, OPT_APPEND, OPT_NO_ICONV, OPT_INFO, OPT_DEBUG, OPT_BLOCK_SIZE,
-      OPT_USERMAP, OPT_GROUPMAP, OPT_CHOWN, OPT_BWLIMIT, OPT_STDERR,
+      OPT_USERMAP, OPT_GROUPMAP, OPT_CHOWN, OPT_BWLIMIT, OPT_STDERR, OPT_CLONE_DEST,
       OPT_OLD_COMPRESS, OPT_NEW_COMPRESS, OPT_NO_COMPRESS,
       OPT_STOP_AFTER, OPT_STOP_AT,
       OPT_REFUSED_BASE = 9000};
@@ -735,6 +735,7 @@ static struct poptOption long_options[] = {
   {"compare-dest",     0,  POPT_ARG_STRING, 0, OPT_COMPARE_DEST, 0, 0 },
   {"copy-dest",        0,  POPT_ARG_STRING, 0, OPT_COPY_DEST, 0, 0 },
   {"link-dest",        0,  POPT_ARG_STRING, 0, OPT_LINK_DEST, 0, 0 },
+  {"clone-dest",       0,  POPT_ARG_STRING, 0, OPT_CLONE_DEST, 0, 0 },
   {"fuzzy",           'y', POPT_ARG_NONE,   0, 'y', 0, 0 },
   {"no-fuzzy",         0,  POPT_ARG_VAL,    &fuzzy_basis, 0, 0, 0 },
   {"no-y",             0,  POPT_ARG_VAL,    &fuzzy_basis, 0, 0, 0 },
@@ -989,6 +990,9 @@ static void set_refuse_options(void)
 #ifndef SUPPORT_HARD_LINKS
 	parse_one_refuse_match(0, "link-dest", list_end);
 #endif
+// #ifndef FICLONE
+// 	parse_one_refuse_match(0, "clone-dest", list_end);
+// #endif
 #ifndef HAVE_MKTIME
 	parse_one_refuse_match(0, "stop-at", list_end);
 #endif
@@ -1318,6 +1322,8 @@ char *alt_dest_opt(int type)
 		return "--copy-dest";
 	case LINK_DEST:
 		return "--link-dest";
+	case CLONE_DEST:
+		return "--clone-dest";
 	default:
 		NOISY_DEATH("Unknown alt_dest_opt type");
 	}
@@ -1686,6 +1692,10 @@ int parse_arguments(int *argc_p, const char ***argv_p)
 
 		case OPT_LINK_DEST:
 			want_dest_type = LINK_DEST;
+			goto set_dest_dir;
+
+		case OPT_CLONE_DEST:
+			want_dest_type = CLONE_DEST;
 			goto set_dest_dir;
 
 		case OPT_COPY_DEST:

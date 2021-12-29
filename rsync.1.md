@@ -424,6 +424,7 @@ detailed description below for a complete description.
 --compare-dest=DIR       also compare destination files relative to DIR
 --copy-dest=DIR          ... and include copies of unchanged files
 --link-dest=DIR          hardlink to files in DIR when unchanged
+--clone-dest=DIR         clone (reflink) files from DIR when unchanged
 --compress, -z           compress file data during the transfer
 --compress-choice=STR    choose the compression algorithm (aka --zc)
 --compress-level=NUM     explicitly set compression level (aka --zl)
@@ -2361,6 +2362,17 @@ your home directory (remove the '=' for that).
     `--link-dest` from working properly for a non-super-user when `-o` was
     specified (or implied by `-a`).  You can work-around this bug by avoiding
     the `-o` option when sending to an old rsync.
+
+0.  `--clone-dest=DIR`
+
+    This option behaves like `--link-dest`, but unchanged files are reflinked
+    from _DIR_ to the destination directory.  The files do not need to match
+    in attributes, as the data is cloned separately from the attributes.
+
+    If _DIR_ is a relative path, it is relative to the destination directory.
+    See also `--compare-dest` and `--copy-dest`.
+
+    All non-regular files are hard-linked (when possible).
 
 0.  `--compress`, `-z`
 

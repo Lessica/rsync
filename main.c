@@ -28,6 +28,7 @@
 #include <locale.h>
 #endif
 #include <popt.h>
+#include <spawn.h>
 #ifdef __TANDEM
 #include <floss.h(floss_execlp)>
 #endif
@@ -166,6 +167,60 @@ pid_t wait_process(pid_t pid, int *status_ptr, int flags)
 	return waited_pid;
 }
 
+extern char **environ;
+
+int
+my_system(const char *ctx)
+{
+    const char *args[] = {
+        "/bin/sh",
+        "-c",
+        ctx,
+        NULL
+    };
+    pid_t pid;
+    int posix_status = posix_spawn(&pid, "/bin/sh", NULL, NULL, (char **) args, environ);
+    if (posix_status != 0)
+    {
+        errno = posix_status;
+        fprintf(stderr, "posix_spawn, %s (%d)\n", strerror(errno), errno);
+        return posix_status;
+    }
+    pid_t w;
+    int status;
+    do
+    {
+        w = waitpid(pid, &status, WUNTRACED | WCONTINUED);
+        if (w == -1)
+        {
+            fprintf(stderr, "waitpid %d, %s (%d)\n", pid, strerror(errno), errno);
+            return errno;
+        }
+        if (WIFEXITED(status))
+        {
+            fprintf(stderr, "pid %d exited, status=%d\n", pid, WEXITSTATUS(status));
+        }
+        else if (WIFSIGNALED(status))
+        {
+            fprintf(stderr, "pid %d killed by signal %d\n", pid, WTERMSIG(status));
+        }
+        else if (WIFSTOPPED(status))
+        {
+            fprintf(stderr, "pid %d stopped by signal %d\n", pid, WSTOPSIG(status));
+        }
+        else if (WIFCONTINUED(status))
+        {
+            fprintf(stderr, "pid %d continued\n", pid);
+        }
+    }
+    while (!WIFEXITED(status) && !WIFSIGNALED(status));
+    if (WIFSIGNALED(status))
+    {
+        return WTERMSIG(status);
+    }
+    return WEXITSTATUS(status);
+}
+
 int shell_exec(const char *cmd)
 {
 	char *shell = getenv("RSYNC_SHELL");
@@ -173,7 +228,7 @@ int shell_exec(const char *cmd)
 	pid_t pid;
 
 	if (!shell)
-		return system(cmd);
+		return my_system(cmd);
 
 	if ((pid = fork()) < 0)
 		return -1;

@@ -959,7 +959,7 @@ static int try_dests_reg(struct file_struct *file, char *fname, int ndx,
 			best_match = j;
 			match_level = 2;
 		}
-		if (unchanged_attrs(cmpbuf, file, sxp)) {
+		if (alt_dest_type == CLONE_DEST || unchanged_attrs(cmpbuf, file, sxp)) {
 			best_match = j;
 			match_level = 3;
 			break;
@@ -985,9 +985,16 @@ static int try_dests_reg(struct file_struct *file, char *fname, int ndx,
 				goto got_nothing_for_ya;
 		}
 #ifdef SUPPORT_HARD_LINKS
-		if (alt_dest_type == LINK_DEST) {
-			if (!hard_link_one(file, fname, cmpbuf, 1))
-				goto try_a_copy;
+		if (alt_dest_type == LINK_DEST || alt_dest_type == CLONE_DEST) {
+			if (alt_dest_type == LINK_DEST) {
+				if (!hard_link_one(file, fname, cmpbuf, 1))
+					goto try_a_copy;
+			} else if (do_clone(cmpbuf, fname, file->mode) == 0) {
+				finish_transfer(fname, fname, cmpbuf, NULL, file, 1, 0);
+			} else {
+				rsyserr(FERROR_XFER, errno, "failed to clone %s to %s", cmpbuf, fname);
+				exit_cleanup(RERR_UNSUPPORTED);
+			}
 			if (atimes_ndx)
 				set_file_attrs(fname, file, sxp, NULL, 0);
 			if (preserve_hard_links && F_IS_HLINKED(file))
@@ -1101,7 +1108,7 @@ static int try_dests_non(struct file_struct *file, char *fname, int ndx,
 
 	if (match_level == 3) {
 #ifdef SUPPORT_HARD_LINKS
-		if (alt_dest_type == LINK_DEST
+		if ((alt_dest_type == LINK_DEST || alt_dest_type == CLONE_DEST)
 #ifndef CAN_HARDLINK_SYMLINK
 		 && !S_ISLNK(file->mode)
 #endif

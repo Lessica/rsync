@@ -177,6 +177,11 @@
 #define COMPARE_DEST 1
 #define COPY_DEST 2
 #define LINK_DEST 3
+#define CLONE_DEST 4
+
+#if !defined FICLONE && defined __linux__
+#define FICLONE _IOW(0x94, 9, int)
+#endif
 
 #define MPLEX_BASE 7
 

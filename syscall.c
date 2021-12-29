@@ -27,6 +27,7 @@
 #endif
 #ifdef HAVE_SYS_ATTR_H
 #include <sys/attr.h>
+#include <sys/clonefile.h>
 #endif
 
 #if defined HAVE_SYS_FALLOCATE && !defined HAVE_FALLOCATE
@@ -145,6 +146,82 @@ int do_link(const char *old_path, const char *new_path)
 #endif
 }
 #endif
+
+int do_clone(const char *old_path, const char *new_path, mode_t mode)
+{
+	int ifd, ret, save_errno;
+
+	if (dry_run) return 0;
+	RETURN_ERROR_IF_RO_OR_LO;
+
+	if ((ifd = do_open(old_path, O_RDONLY, 0)) < 0) {
+		save_errno = errno;
+		rsyserr(FERROR_XFER, errno, "open %s", full_fname(old_path));
+		errno = save_errno;
+		return -1;
+	}
+
+	if (robust_unlink(new_path) && errno != ENOENT) {
+		save_errno = errno;
+		rsyserr(FERROR_XFER, errno, "unlink %s", full_fname(new_path));
+		close(ifd);
+		errno = save_errno;
+		return -1;
+	}
+
+	ret = fclonefileat(ifd, AT_FDCWD, new_path, 0);
+	save_errno = errno;
+	close(ifd);
+	if (ret < 0)
+		unlink(new_path);
+	errno = save_errno;
+	return ret;
+
+// #ifdef FICLONE
+// 	int ifd, ofd, ret, save_errno;
+
+// 	if (dry_run) return 0;
+// 	RETURN_ERROR_IF_RO_OR_LO;
+
+// 	if ((ifd = do_open(old_path, O_RDONLY, 0)) < 0) {
+// 		save_errno = errno;
+// 		rsyserr(FERROR_XFER, errno, "open %s", full_fname(old_path));
+// 		errno = save_errno;
+// 		return -1;
+// 	}
+
+// 	if (robust_unlink(new_path) && errno != ENOENT) {
+// 		save_errno = errno;
+// 		rsyserr(FERROR_XFER, errno, "unlink %s", full_fname(new_path));
+// 		close(ifd);
+// 		errno = save_errno;
+// 		return -1;
+// 	}
+
+// 	mode &= INITACCESSPERMS;
+// 	if ((ofd = do_open(new_path, O_WRONLY | O_CREAT | O_TRUNC | O_EXCL, mode)) < 0) {
+// 		save_errno = errno;
+// 		rsyserr(FERROR_XFER, save_errno, "open %s", full_fname(new_path));
+// 		close(ifd);
+// 		errno = save_errno;
+// 		return -1;
+// 	}
+
+// 	ret = ioctl(ofd, FICLONE, ifd);
+// 	save_errno = errno;
+// 	close(ifd);
+// 	close(ofd);
+// 	if (ret < 0)
+// 		unlink(new_path);
+// 	errno = save_errno;
+// 	return ret;
+// #else
+// 	(void)old_path;
+// 	(void)new_path;
+// 	errno = ENOTSUP;
+// 	return -1;
+// #endif
+}
 
 int do_lchown(const char *path, uid_t owner, gid_t group)
 {
